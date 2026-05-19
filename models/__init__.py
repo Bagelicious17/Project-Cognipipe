@@ -13,10 +13,24 @@ from models.schemas import (
     DatasetFlags,
     # Top-level result
     ProfileResult,
+    # Layer 2 models
+    AnalystDiagnostic,
+    FeatureStep,
+    FeatureEngineeringPrescription,
+    ModelCandidate,
+    PreprocessingStep,
+    EvaluationStrategy,
+    MLArchitectureRecommendation,
+    ChainTokenUsage,
+    GeminiResult,
+    # Layer 3 models
+    GeneratedPipeline,
     # Enums
     SemanticType,
     MissingPattern,
     TaskType,
+    CorrelationMethod,
+    LeakageReason,
 )
 
 __all__ = [
@@ -29,7 +43,19 @@ __all__ = [
     "DataLeakageRisk",
     "DatasetFlags",
     "ProfileResult",
+    "AnalystDiagnostic",
+    "FeatureStep",
+    "FeatureEngineeringPrescription",
+    "ModelCandidate",
+    "PreprocessingStep",
+    "EvaluationStrategy",
+    "MLArchitectureRecommendation",
+    "ChainTokenUsage",
+    "GeminiResult",
+    "GeneratedPipeline",
     "SemanticType",
     "MissingPattern",
     "TaskType",
+    "CorrelationMethod",
+    "LeakageReason",
 ]

@@ -457,6 +457,51 @@ class ProfileResult(BaseModel):
 # Layer 2 — GeminiOrchestrator output models
 # ──────────────────────────────────────────────────────────────────────
 
+
+class AnalystDiagnostic(BaseModel):
+    """Chain 1 output: high-level dataset diagnostic from the AI analyst.
+
+    This is an intermediate artefact consumed by Chains 2 and 3.
+    It confirms / overrides heuristic guesses from the profiler and
+    provides structured guidance for downstream chains.
+    """
+
+    diagnostic_summary: str = Field(
+        ...,
+        description=(
+            "Plain-English summary of the dataset, referencing "
+            "real column names and specific statistics."
+        ),
+    )
+    confirmed_task_type: str = Field(
+        ...,
+        description=(
+            "AI-confirmed ML task type. One of: binary_classification, "
+            "multiclass_classification, regression, time_series, "
+            "clustering, unknown."
+        ),
+    )
+    confirmed_target_column: str | None = Field(
+        None,
+        description="AI-confirmed target column name, or null for unsupervised tasks.",
+    )
+    critical_issues: list[str] = Field(
+        default_factory=list,
+        description="List of specific data quality problems found.",
+    )
+    column_roles: dict[str, str] = Field(
+        default_factory=dict,
+        description=(
+            "Mapping of column_name → role.  Roles: "
+            "'feature', 'target', 'id', 'datetime_index', 'drop_candidate'."
+        ),
+    )
+    priority_columns_for_engineering: list[str] = Field(
+        default_factory=list,
+        description="Columns that need the most feature engineering attention.",
+    )
+
+
 class FeatureStep(BaseModel):
     """A single feature engineering operation prescribed by Gemini."""
 
@@ -636,6 +681,15 @@ class MLArchitectureRecommendation(BaseModel):
     )
 
 
+class ChainTokenUsage(BaseModel):
+    """Token usage for a single Gemini chain call."""
+
+    chain_name: str = Field(..., description="Chain identifier, e.g. 'chain_1_analyst'.")
+    input_tokens: int = Field(0, ge=0, description="Prompt token count.")
+    output_tokens: int = Field(0, ge=0, description="Completion token count.")
+    total_tokens: int = Field(0, ge=0, description="Sum of input + output tokens.")
+
+
 class GeminiResult(BaseModel):
     """Combined output of the GeminiOrchestrator (Layer 2).
 
@@ -643,6 +697,10 @@ class GeminiResult(BaseModel):
     (CodeAssembler).
     """
 
+    analyst_diagnostic: AnalystDiagnostic = Field(
+        ...,
+        description="Chain 1 output: AI analyst diagnostic.",
+    )
     feature_engineering: FeatureEngineeringPrescription = Field(
         ...,
         description="AI-generated feature engineering prescription.",
@@ -657,6 +715,10 @@ class GeminiResult(BaseModel):
             "Raw JSON responses from each Gemini call, keyed by prompt "
             "name. Useful for debugging and auditing."
         ),
+    )
+    token_usage: list[ChainTokenUsage] = Field(
+        default_factory=list,
+        description="Per-chain token usage for cost tracking.",
     )
     orchestration_duration_seconds: float = Field(
         0.0,

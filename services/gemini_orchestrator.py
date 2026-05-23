@@ -80,12 +80,12 @@ class GeminiOrchestrator:
 
     MAX_RETRIES = 3
 
-    def __init__(self, api_key: str, model: str = "gemini-1.5-pro"):
+    def __init__(self, api_key: str, model: str = "gemini-2.5-flash"):
         """Initialise the orchestrator with a Gemini API key.
 
         Args:
             api_key: Google Gemini API key.
-            model: Model name (default: ``gemini-1.5-pro``).
+            model: Model name (default: ``gemini-2.5-flash``).
         """
         self._client = genai.Client(api_key=api_key)
         self._model_name = model
@@ -207,7 +207,24 @@ class GeminiOrchestrator:
             user_prompt=user_prompt,
         )
 
-        return FeatureEngineeringPrescription.model_validate(raw)
+        prescription = FeatureEngineeringPrescription.model_validate(raw)
+
+        # Filter out feature steps on columns that were identified as drop_candidate or id
+        column_roles_dict = chain1.get("column_roles", {})
+        valid_steps = []
+        for step in prescription.steps:
+            # Check if any target column in the step is a drop candidate
+            is_valid = True
+            for col in step.target_columns:
+                role = column_roles_dict.get(col, "")
+                if role in ["drop_candidate", "id"]:
+                    is_valid = False
+                    break
+            if is_valid:
+                valid_steps.append(step)
+
+        prescription.steps = valid_steps
+        return prescription
 
     # ── Chain 3: ML Architect ─────────────────────────────────────
 

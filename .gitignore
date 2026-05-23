@@ -221,3 +221,7 @@ __marimo__/
 .env
 .env.*
 !.env.example
+
+# Smoke test outputs
+smoke_output/
+*.csv

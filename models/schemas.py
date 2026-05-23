@@ -42,7 +42,7 @@ Design decisions
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
@@ -521,10 +521,26 @@ class FeatureStep(BaseModel):
         ...,
         description="Column(s) this operation applies to.",
     )
-    new_column_name: str | None = Field(
+    new_column_name: str | list[str] | None = Field(
         None,
-        description="Name of the newly created feature, if applicable.",
+        description="Name of the newly created feature(s), if applicable.",
     )
+
+    @classmethod
+    def _coerce_new_column_name(cls, v: Any) -> str | None:
+        if isinstance(v, list):
+            return ", ".join(str(x) for x in v) if v else None
+        return v
+
+    from pydantic import model_validator
+
+    @model_validator(mode="before")
+    @classmethod
+    def _fix_new_column_name(cls, data: Any) -> Any:
+        if isinstance(data, dict) and isinstance(data.get("new_column_name"), list):
+            names = data["new_column_name"]
+            data["new_column_name"] = ", ".join(str(x) for x in names) if names else None
+        return data
     parameters: dict[str, Any] = Field(
         default_factory=dict,
         description=(
@@ -759,7 +775,7 @@ class GeneratedPipeline(BaseModel):
         description="Human-readable summary of what the pipeline does.",
     )
     generated_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(timezone.utc),
         description="UTC timestamp of code generation.",
     )
     source_profile_version: str = Field(

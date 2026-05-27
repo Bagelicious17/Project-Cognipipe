@@ -43,8 +43,36 @@ class Settings:
 
     @property
     def gemini_model_name(self) -> str:
-        """Gemini model name (defaults to gemini-1.5-pro)."""
-        return os.getenv("GEMINI_MODEL_NAME", "gemini-1.5-pro")
+        """Gemini model name (defaults to gemini-2.5-flash)."""
+        return os.getenv("GEMINI_MODEL_NAME", "gemini-2.5-flash")
+
+    # ── FastAPI settings ──────────────────────────────────────────
+
+    @property
+    def api_host(self) -> str:
+        """Host to bind the API server to."""
+        return os.getenv("API_HOST", "0.0.0.0")
+
+    @property
+    def api_port(self) -> int:
+        """Port to bind the API server to."""
+        return int(os.getenv("API_PORT", "8000"))
+
+    @property
+    def max_upload_mb(self) -> int:
+        """Maximum upload file size in megabytes."""
+        return int(os.getenv("MAX_UPLOAD_MB", "50"))
+
+    @property
+    def cors_origins(self) -> list[str]:
+        """Allowed CORS origins (comma-separated in env)."""
+        raw = os.getenv("CORS_ORIGINS", "*")
+        return [o.strip() for o in raw.split(",")]
+
+    @property
+    def gemini_timeout_seconds(self) -> int:
+        """Timeout for Gemini API calls in seconds."""
+        return int(os.getenv("GEMINI_TIMEOUT_SECONDS", "300"))
 
 
 settings = Settings()

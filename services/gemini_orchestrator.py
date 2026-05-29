@@ -80,12 +80,12 @@ class GeminiOrchestrator:
 
     MAX_RETRIES = 3
 
-    def __init__(self, api_key: str, model: str = "gemini-3.0-flash"):
+    def __init__(self, api_key: str, model: str = "gemini-1.5-flash"):
         """Initialise the orchestrator with a Gemini API key.
 
         Args:
             api_key: Google Gemini API key.
-            model: Model name (default: ``gemini-3.0-flash``).
+            model: Model name (default: ``gemini-1.5-flash``).
         """
         self._client = genai.Client(api_key=api_key)
         self._model_name = model

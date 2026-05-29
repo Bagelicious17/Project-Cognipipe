@@ -43,8 +43,8 @@ class Settings:
 
     @property
     def gemini_model_name(self) -> str:
-        """Gemini model name (defaults to gemini-3.0-flash)."""
-        return os.getenv("GEMINI_MODEL_NAME", "gemini-3.0-flash")
+        """Gemini model name (defaults to gemini-1.5-flash)."""
+        return os.getenv("GEMINI_MODEL_NAME", "gemini-1.5-flash")
 
     # ── FastAPI settings ──────────────────────────────────────────
 

@@ -1,0 +1,46 @@
+# ── Environment & secrets ─────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── Python artifacts ──────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# ── Virtual environments ─────────────────────────────
+.venv/
+venv/
+env/
+
+# ── Version control ──────────────────────────────────
+.git/
+.gitignore
+
+# ── Test & dev files ─────────────────────────────────
+tests/
+.pytest_cache/
+pytest.ini
+smoke_test.py
+smoke_output/
+_test_*.py
+
+# ── Data files (never ship user data in images) ──────
+*.csv
+*.xlsx
+
+# ── Documentation (except README) ────────────────────
+ARCHITECTURE.md
+LICENSE
+
+# ── IDE & OS artifacts ───────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+Thumbs.db
+.DS_Store

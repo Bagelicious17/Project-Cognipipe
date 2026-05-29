@@ -56,7 +56,7 @@ class Settings:
     @property
     def api_port(self) -> int:
         """Port to bind the API server to."""
-        return int(os.getenv("API_PORT", "8000"))
+        return int(os.getenv("API_PORT", "8080"))
 
     @property
     def max_upload_mb(self) -> int:

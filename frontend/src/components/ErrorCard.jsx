@@ -6,19 +6,21 @@ export default function ErrorCard({ error, onRetry }) {
 
   return (
     <div className="stage-enter flex flex-col items-center gap-6 w-full max-w-xl mx-auto">
-      <div className="w-full rounded-2xl bg-red-500/10 border border-red-500/30 p-6 space-y-3">
-        <div className="text-center">
-          <div className="text-3xl mb-2">❌</div>
-          <h2 className="text-xl font-bold text-red-400">
-            Pipeline Generation Failed
-          </h2>
-          <p className="text-zinc-500 text-xs uppercase tracking-wider mt-2">
-            Failed during: {stage}
-          </p>
+      <div className="w-full rounded-lg bg-[#EF4444]/10 dark:bg-[#F87171]/10 border-l-4 border-l-[#EF4444] dark:border-l-[#F87171] border-y border-r border-y-[#E7E5E4] dark:border-y-[#44403C] border-r-[#E7E5E4] dark:border-r-[#44403C] p-6 text-left relative z-10">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="text-3xl drop-shadow-sm">❌</div>
+          <div>
+            <h2 className="text-xl font-heading font-semibold text-[#EF4444] dark:text-[#F87171] tracking-wide">
+              Pipeline Generation Failed
+            </h2>
+            <p className="text-[#78716C] dark:text-[#a8a29e] text-xs uppercase tracking-wider font-semibold mt-1">
+              Failed during: {stage}
+            </p>
+          </div>
         </div>
 
-        <div className="bg-zinc-900/60 rounded-xl p-4">
-          <p className="text-zinc-300 text-sm font-mono leading-relaxed break-words">
+        <div className="bg-[#FFFFFF] dark:bg-[#292524] rounded-md p-4 border border-[#E7E5E4] dark:border-[#44403C] shadow-sm">
+          <p className="text-[#292524] dark:text-[#F3F2ED] text-sm font-mono leading-relaxed break-words">
             {message}
           </p>
         </div>
@@ -26,10 +28,10 @@ export default function ErrorCard({ error, onRetry }) {
 
       <button
         onClick={onRetry}
-        className="w-full py-3.5 rounded-xl font-semibold text-base
-                   bg-zinc-800 hover:bg-zinc-700 text-zinc-300
-                   border border-zinc-700 hover:border-zinc-600
-                   transition-all duration-300 cursor-pointer"
+        className="w-full py-3 rounded-md font-medium text-base tracking-wide relative z-10
+                   bg-[#FFFFFF] dark:bg-[#292524] hover:bg-[#F5F5F4] dark:hover:bg-[#44403C] text-[#292524] dark:text-[#F3F2ED]
+                   border border-[#E7E5E4] dark:border-[#44403C] hover:border-[#78716C] dark:hover:border-[#a8a29e]
+                   transition-colors duration-200 ease-out cursor-pointer shadow-sm"
       >
         ← Try Again
       </button>

@@ -53,11 +53,11 @@ export default function UploadStage({ onFileSelected }) {
   return (
     <div className="stage-enter flex flex-col items-center gap-8 w-full max-w-xl mx-auto">
       {/* Logo / Title */}
-      <div className="text-center">
-        <h1 className="text-4xl font-bold tracking-tight text-white">
-          🧠 CogniPipe
+      <div className="text-center relative z-10">
+        <h1 className="text-4xl font-heading font-semibold text-[#292524] dark:text-[#F3F2ED]">
+          CogniPipe
         </h1>
-        <p className="mt-2 text-zinc-400 text-lg">
+        <p className="mt-3 text-[#78716C] dark:text-[#a8a29e] text-base max-w-md mx-auto">
           Drop a dataset. Get a production-ready ML pipeline.
         </p>
       </div>
@@ -77,15 +77,15 @@ export default function UploadStage({ onFileSelected }) {
           if (e.key === "Enter" || e.key === " ") inputRef.current?.click();
         }}
         className={`
-          w-full rounded-2xl border-2 border-dashed p-12
+          relative w-full rounded-xl border-2 border-dashed p-14
           flex flex-col items-center justify-center gap-4
-          cursor-pointer transition-all duration-300
+          cursor-pointer transition-all duration-300 ease-out overflow-hidden
           ${
             dragOver
-              ? "border-blue-500 bg-blue-500/10 scale-[1.02]"
+              ? "border-[#3B82F6] bg-[#3B82F6]/5 scale-[1.02] shadow-sm"
               : file
-              ? "border-emerald-500/50 bg-emerald-500/5"
-              : "border-zinc-700 bg-zinc-900/50 hover:border-zinc-500 hover:bg-zinc-800/50"
+              ? "border-[#10B981] dark:border-[#34D399] bg-[#10B981]/5"
+              : "border-[#E7E5E4] dark:border-[#44403C] bg-[#FFFFFF] dark:bg-[#292524] hover:border-[#78716C] dark:hover:border-[#a8a29e] hover:shadow-sm"
           }
         `}
       >
@@ -104,20 +104,20 @@ export default function UploadStage({ onFileSelected }) {
           <>
             <div className="text-5xl">📄</div>
             <div className="text-center">
-              <p className="text-white font-semibold text-lg">{file.name}</p>
-              <p className="text-zinc-400 text-sm mt-1">
+              <p className="text-[#292524] dark:text-[#F3F2ED] font-semibold text-lg">{file.name}</p>
+              <p className="text-[#78716C] dark:text-[#a8a29e] text-sm mt-1">
                 {formatSize(file.size)}
               </p>
             </div>
-            <p className="text-zinc-500 text-xs">Click to change file</p>
+            <p className="text-[#78716C] dark:text-[#a8a29e] text-xs">Click to change file</p>
           </>
         ) : (
           <>
             <div className="text-5xl opacity-60">📂</div>
-            <p className="text-zinc-300 font-medium">
+            <p className="text-[#292524] dark:text-[#F3F2ED] font-medium mt-2">
               Drag & drop your dataset here
             </p>
-            <p className="text-zinc-500 text-sm">
+            <p className="text-[#78716C] dark:text-[#a8a29e] text-sm">
               or click to browse — .csv, .xlsx up to {MAX_MB} MB
             </p>
           </>
@@ -136,12 +136,12 @@ export default function UploadStage({ onFileSelected }) {
         disabled={!file}
         onClick={() => onFileSelected(file)}
         className={`
-          w-full py-3.5 rounded-xl font-semibold text-base
-          transition-all duration-300
+          w-full py-3 rounded-md font-medium text-base tracking-wide
+          transition-all duration-200 ease-out border
           ${
             file
-              ? "bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/25 hover:shadow-blue-500/40 cursor-pointer"
-              : "bg-zinc-800 text-zinc-500 cursor-not-allowed"
+              ? "bg-[#292524] dark:bg-[#a8a29e] text-white dark:text-[#1C1917] border-transparent hover:opacity-90 shadow-sm cursor-pointer"
+              : "bg-[#F5F5F4] dark:bg-[#292524] text-[#A8A29E] dark:text-[#78716C] border-[#E7E5E4] dark:border-[#44403C] cursor-not-allowed"
           }
         `}
       >

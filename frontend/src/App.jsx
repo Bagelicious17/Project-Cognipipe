@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { profileDataset, generatePipeline } from "./api";
 import UploadStage from "./components/UploadStage";
 import ProfilingStage from "./components/ProfilingStage";
@@ -30,6 +30,24 @@ export default function App() {
   const [profile, setProfile] = useState(null);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
+
+  const [isDark, setIsDark] = useState(false);
+
+  useEffect(() => {
+    setIsDark(document.documentElement.classList.contains('dark'));
+  }, []);
+
+  const toggleDark = () => {
+    if (isDark) {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+      setIsDark(false);
+    } else {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+      setIsDark(true);
+    }
+  };
 
   const reset = useCallback(() => {
     setStage(STAGES.UPLOAD);
@@ -67,34 +85,45 @@ export default function App() {
   }, [file]);
 
   return (
-    <div className="min-h-screen bg-[#0f0f0f] flex flex-col">
+    <div className="min-h-screen flex flex-col text-[#292524] dark:text-[#F3F2ED] transition-colors duration-300">
+      
       {/* Header */}
-      <header className="border-b border-zinc-800/60 py-3 px-6">
+      <header className="py-4 px-6 relative z-10 border-b border-[#E7E5E4] dark:border-[#44403C]">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <button
             onClick={reset}
-            className="text-zinc-400 hover:text-white transition-colors text-sm font-medium cursor-pointer"
+            className="hover:opacity-80 transition-opacity flex items-center gap-2 cursor-pointer font-heading font-bold text-xl"
           >
-            🧠 CogniPipe
+            <span className="text-xl">📓</span> CogniPipe
           </button>
-          <span className="text-zinc-600 text-xs font-mono">v0.1.0</span>
+          
+          <div className="flex items-center gap-4">
+            <span className="text-[#78716C] dark:text-[#a8a29e] text-xs font-mono font-medium">v0.1.0</span>
+            <button 
+              onClick={toggleDark}
+              className="p-1.5 rounded-md hover:bg-[#E7E5E4] dark:hover:bg-[#44403C] transition-colors cursor-pointer text-sm"
+              title="Toggle theme"
+            >
+              {isDark ? "☀️" : "🌙"}
+            </button>
+          </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 flex items-center justify-center px-4 py-12">
+      <main className="flex-1 flex items-center justify-center px-4 py-12 relative z-10">
         {stage === STAGES.UPLOAD && (
           <UploadStage onFileSelected={handleFileSelected} />
         )}
 
         {stage === STAGES.PROFILING && (
           <div className="stage-enter flex flex-col items-center gap-6">
-            <div className="w-16 h-16 rounded-full border-4 border-zinc-800 border-t-blue-500 animate-spin" />
+            <div className="w-16 h-16 rounded-full border-4 border-[#E7E5E4] dark:border-[#44403C] border-t-[#3B82F6] dark:border-t-[#60A5FA] animate-spin" />
             <div className="text-center">
-              <h2 className="text-xl font-bold text-white">
+              <h2 className="text-2xl font-heading font-semibold text-[#292524] dark:text-[#F3F2ED]">
                 Profiling your dataset...
               </h2>
-              <p className="text-zinc-400 mt-1 text-sm">
+              <p className="text-[#78716C] dark:text-[#a8a29e] mt-2 text-sm font-sans">
                 Analyzing columns, types, and distributions
               </p>
             </div>
@@ -117,8 +146,8 @@ export default function App() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-zinc-800/60 py-3 px-6">
-        <p className="text-center text-zinc-600 text-xs">
+      <footer className="py-6 px-6 relative z-10">
+        <p className="text-center text-[#78716C] dark:text-[#a8a29e] text-xs font-medium font-sans">
           CogniPipe — Automated ML Pipeline Generation
         </p>
       </footer>

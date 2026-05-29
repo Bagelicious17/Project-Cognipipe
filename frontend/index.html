@@ -8,7 +8,17 @@
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>" />
     <title>CogniPipe — AI Pipeline Generator</title>
   </head>
-  <body class="bg-[#0f0f0f]">
+  <body class="bg-[#F3F2ED] dark:bg-[#1C1917] transition-colors duration-300">
+    <script>
+      (function () {
+        const theme = localStorage.getItem('theme');
+        if (theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
+      })();
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

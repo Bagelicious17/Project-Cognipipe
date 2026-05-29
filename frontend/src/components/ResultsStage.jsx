@@ -12,12 +12,11 @@ export default function ResultsStage({ result, onReset }) {
   return (
     <div className="stage-enter flex flex-col items-center gap-6 w-full max-w-2xl mx-auto">
       {/* Success Banner */}
-      <div className="w-full rounded-2xl bg-emerald-500/10 border border-emerald-500/30 p-5 text-center">
-        <div className="text-3xl mb-2">🎉</div>
-        <h2 className="text-xl font-bold text-emerald-400">
-          Pipeline Generated Successfully
+      <div className="w-full rounded-lg bg-[#10B981]/10 dark:bg-[#34D399]/10 border-l-4 border-l-[#10B981] dark:border-l-[#34D399] border-y border-r border-y-[#E7E5E4] dark:border-y-[#44403C] border-r-[#E7E5E4] dark:border-r-[#44403C] p-6 text-left relative z-10">
+        <h2 className="text-xl font-heading font-semibold text-[#10B981] dark:text-[#34D399] flex items-center gap-2">
+          <span className="text-2xl">🎉</span> Pipeline Generated Successfully
         </h2>
-        <p className="text-zinc-400 text-sm mt-1">
+        <p className="text-[#78716C] dark:text-[#a8a29e] text-sm mt-2 font-mono">
           Total generation time: {totalTime.toFixed(1)}s
         </p>
       </div>
@@ -56,23 +55,25 @@ export default function ResultsStage({ result, onReset }) {
 
       {/* Pipeline Summary */}
       {summary && (
-        <div className="w-full rounded-2xl bg-zinc-900/80 border border-zinc-800 p-6">
-          <p className="text-zinc-500 text-xs uppercase tracking-wider font-medium mb-3">
+        <div className="w-full rounded-lg bg-[#FFFFFF] dark:bg-[#292524] border border-[#E7E5E4] dark:border-[#44403C] p-6 shadow-sm relative z-10">
+          <p className="text-[#78716C] dark:text-[#a8a29e] text-xs uppercase tracking-wider font-semibold mb-4">
             Pipeline Summary
           </p>
-          <p className="text-zinc-300 text-sm leading-relaxed whitespace-pre-line font-mono">
-            {summary}
-          </p>
+          <div className="bg-[#F5F5F4] dark:bg-[#1C1917] rounded-md p-4 border border-[#E7E5E4] dark:border-[#44403C]">
+            <p className="text-[#292524] dark:text-[#F3F2ED] text-sm leading-relaxed whitespace-pre-line font-mono">
+              {summary}
+            </p>
+          </div>
         </div>
       )}
 
       {/* Reset */}
       <button
         onClick={onReset}
-        className="w-full py-3.5 rounded-xl font-semibold text-base
-                   bg-zinc-800 hover:bg-zinc-700 text-zinc-300
-                   border border-zinc-700 hover:border-zinc-600
-                   transition-all duration-300 cursor-pointer"
+        className="w-full py-3 rounded-md font-medium text-base tracking-wide relative z-10
+                   bg-[#FFFFFF] dark:bg-[#292524] hover:bg-[#F5F5F4] dark:hover:bg-[#44403C] text-[#292524] dark:text-[#F3F2ED]
+                   border border-[#E7E5E4] dark:border-[#44403C] hover:border-[#78716C] dark:hover:border-[#a8a29e]
+                   transition-colors duration-200 ease-out cursor-pointer shadow-sm"
       >
         ← Analyze Another Dataset
       </button>
@@ -98,16 +99,16 @@ function DownloadButton({ icon, label, sublabel, onClick }) {
     <button
       onClick={handleClick}
       disabled={downloading}
-      className="flex items-center gap-3 p-4 rounded-xl
-                 bg-zinc-900/80 border border-zinc-800
-                 hover:bg-zinc-800/80 hover:border-zinc-700
-                 transition-all duration-200 cursor-pointer
-                 disabled:opacity-50 disabled:cursor-wait"
+      className="flex items-center gap-4 p-4 rounded-lg
+                 bg-[#FFFFFF] dark:bg-[#292524] border border-[#E7E5E4] dark:border-[#44403C] shadow-sm
+                 hover:bg-[#F5F5F4] dark:hover:bg-[#44403C] hover:border-[#3B82F6] dark:hover:border-[#60A5FA]
+                 transition-all duration-200 ease-out cursor-pointer hover:-translate-y-0.5
+                 disabled:opacity-50 disabled:cursor-wait disabled:hover:translate-y-0 relative z-10"
     >
-      <span className="text-2xl">{icon}</span>
+      <span className="text-2xl drop-shadow-sm">{icon}</span>
       <div className="text-left">
-        <p className="text-white text-sm font-semibold">{label}</p>
-        <p className="text-zinc-500 text-xs">{sublabel}</p>
+        <p className="text-[#292524] dark:text-[#F3F2ED] text-sm font-semibold tracking-wide">{label}</p>
+        <p className="text-[#78716C] dark:text-[#a8a29e] text-xs mt-0.5">{sublabel}</p>
       </div>
     </button>
   );

@@ -34,30 +34,32 @@ export default function GeneratingStage() {
   }, []);
 
   return (
-    <div className="stage-enter flex flex-col items-center gap-8 w-full max-w-xl mx-auto">
+    <div className="stage-enter flex flex-col items-center gap-8 w-full max-w-xl mx-auto relative z-10">
       {/* Spinner */}
       <div className="relative flex items-center justify-center">
-        <div className="w-20 h-20 rounded-full border-4 border-zinc-800 border-t-blue-500 animate-spin" />
-        <span className="absolute text-2xl">⚙️</span>
+        <div className="w-16 h-16 rounded-full border-4 border-[#E7E5E4] dark:border-[#44403C] border-t-[#3B82F6] dark:border-t-[#60A5FA] animate-spin" />
+        <span className="absolute text-2xl z-20">⚙️</span>
       </div>
 
       {/* Title */}
       <div className="text-center">
-        <h2 className="text-2xl font-bold text-white">Generating Pipeline</h2>
-        <p className="text-zinc-400 mt-1 text-sm">
+        <h2 className="text-3xl font-heading font-semibold text-[#292524] dark:text-[#F3F2ED] tracking-tight">
+          Generating Pipeline
+        </h2>
+        <p className="text-[#78716C] dark:text-[#a8a29e] mt-2 text-sm font-medium">
           This usually takes 30–90 seconds
         </p>
       </div>
 
       {/* Progress Bar */}
-      <div className="w-full">
-        <div className="w-full h-2 rounded-full bg-zinc-800 overflow-hidden">
+      <div className="w-full bg-[#FFFFFF] dark:bg-[#292524] rounded-lg p-6 border border-[#E7E5E4] dark:border-[#44403C] shadow-sm">
+        <div className="w-full h-3 rounded-full bg-[#F5F5F4] dark:bg-[#1C1917] overflow-hidden">
           <div
-            className="h-full rounded-full bg-gradient-to-r from-blue-600 to-blue-400 transition-all duration-500 ease-out"
+            className="h-full rounded-full bg-[#3B82F6] dark:bg-[#60A5FA] animate-stripes transition-all duration-500 ease-out"
             style={{ width: `${progress}%` }}
           />
         </div>
-        <p className="text-zinc-500 text-xs text-right mt-1.5">
+        <p className="text-[#78716C] dark:text-[#a8a29e] font-mono text-xs text-right mt-3">
           {Math.round(progress)}%
         </p>
       </div>
@@ -65,7 +67,7 @@ export default function GeneratingStage() {
       {/* Rotating Message */}
       <p
         key={msgIndex}
-        className="text-zinc-300 text-base font-medium animate-fade-in"
+        className="text-[#292524] dark:text-[#F3F2ED] text-base font-medium animate-fade-in"
       >
         {MESSAGES[msgIndex]}
       </p>
@@ -90,7 +92,7 @@ function ElapsedTimer({ startRef }) {
   const secs = elapsed % 60;
 
   return (
-    <p className="text-zinc-600 text-xs font-mono">
+    <p className="text-[#78716C] dark:text-[#a8a29e] text-xs font-mono">
       Elapsed: {mins > 0 ? `${mins}m ` : ""}
       {secs}s
     </p>

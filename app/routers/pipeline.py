@@ -46,6 +46,51 @@ router = APIRouter()
 _MAX_BYTES = settings.max_upload_mb * 1024 * 1024
 
 
+def _sanitize_error(exc: Exception) -> str:
+    """Convert raw exceptions into clean, user-facing error messages.
+
+    Maps known Gemini API error codes and common failure patterns to
+    friendly messages. Never leaks internal details to the frontend.
+    """
+    raw = str(exc).lower()
+
+    if "429" in raw or "resource_exhausted" in raw or "quota" in raw:
+        return (
+            "The AI service has reached its usage limit for today. "
+            "Please try again later or contact the administrator."
+        )
+    if "403" in raw or "permission_denied" in raw:
+        return (
+            "The AI service is not authorized. "
+            "Please check the API key configuration."
+        )
+    if "400" in raw or "invalid_argument" in raw:
+        return (
+            "The AI service received an invalid request. "
+            "Please try uploading a different dataset."
+        )
+    if "404" in raw or "not_found" in raw:
+        return (
+            "The configured AI model was not found. "
+            "Please contact the administrator."
+        )
+    if "timeout" in raw or "deadline" in raw:
+        return (
+            "The AI service took too long to respond. "
+            "Please try again with a smaller dataset."
+        )
+    if "connection" in raw or "network" in raw or "dns" in raw:
+        return (
+            "Unable to reach the AI service. "
+            "Please check your internet connection and try again."
+        )
+
+    # Fallback — generic but clean
+    return (
+        "An unexpected error occurred during AI analysis. "
+        "Please try again. If the issue persists, contact support."
+    )
+
 async def _validate_and_read_csv(file: UploadFile) -> pd.DataFrame:
     """Validate an uploaded file and return a pandas DataFrame.
 
@@ -188,7 +233,10 @@ async def profile_only(file: UploadFile):
             status_code=500,
             detail={
                 "error": "profiling_error",
-                "detail": f"Data profiling failed: {e}",
+                "detail": (
+                    "Data profiling failed unexpectedly. "
+                    "Please try uploading a different dataset."
+                ),
                 "stage": "profiling",
             },
         )
@@ -245,7 +293,10 @@ async def generate_pipeline(file: UploadFile):
             status_code=500,
             detail={
                 "error": "profiling_error",
-                "detail": f"Data profiling failed: {e}",
+                "detail": (
+                    "Data profiling failed unexpectedly. "
+                    "Please try uploading a different dataset."
+                ),
                 "stage": "profiling",
             },
         )
@@ -289,7 +340,7 @@ async def generate_pipeline(file: UploadFile):
             status_code=500,
             detail={
                 "error": "orchestration_error",
-                "detail": f"AI analysis failed: {e}",
+                "detail": _sanitize_error(e),
                 "stage": "orchestration",
             },
         )
@@ -304,7 +355,10 @@ async def generate_pipeline(file: UploadFile):
             status_code=500,
             detail={
                 "error": "assembly_error",
-                "detail": f"Code assembly failed: {e}",
+                "detail": (
+                    "Failed to assemble the pipeline code. "
+                    "Please try again with a different dataset."
+                ),
                 "stage": "assembly",
             },
         )

@@ -141,6 +141,43 @@ class TestSemanticTypeInference:
         result = profiler.profile(df)
         assert result.columns[0].inferred_semantic_type == SemanticType.CONTINUOUS
 
+    def test_integer_year_column_not_datetime(self, profiler: DataProfiler):
+        """Integer 'year' column with values 2000-2024 → CYCLICAL, not DATETIME."""
+        np.random.seed(42)
+        # Repeat years so cardinality ratio is low (~25 unique / 200 rows = 0.125)
+        df = pd.DataFrame({
+            "Year": np.random.choice(range(2000, 2025), 200),
+            "value": np.random.random(200),
+        })
+        result = profiler.profile(df)
+        cp = [c for c in result.columns if c.column_name == "Year"][0]
+        assert cp.inferred_semantic_type == SemanticType.CYCLICAL
+
+    def test_integer_rainfall_not_datetime(self, profiler: DataProfiler):
+        """Integer 'rainfall' column → CONTINUOUS, not DATETIME."""
+        np.random.seed(42)
+        # Use enough rows with a moderate range so card_ratio < 0.95
+        df = pd.DataFrame({
+            "Rainfall": np.random.randint(200, 500, 200),
+            "value": np.random.random(200),
+        })
+        result = profiler.profile(df)
+        cp = [c for c in result.columns if c.column_name == "Rainfall"][0]
+        assert cp.inferred_semantic_type == SemanticType.CONTINUOUS
+
+    def test_special_char_column_continuous(self, profiler: DataProfiler):
+        """Float column with special chars in name → CONTINUOUS, not UNKNOWN."""
+        np.random.seed(42)
+        # Use rounded floats so cardinality < n_rows (avoids ID by cardinality)
+        df = pd.DataFrame({
+            "Cholera Cases per 100,000 people": np.round(np.random.random(200) * 50, 1),
+            "Region": ["A", "B", "C", "D"] * 50,
+        })
+        result = profiler.profile(df)
+        cp = [c for c in result.columns
+              if c.column_name == "Cholera Cases per 100,000 people"][0]
+        assert cp.inferred_semantic_type == SemanticType.CONTINUOUS
+
 
 # ── Numerical stats ───────────────────────────────────────────────────
 

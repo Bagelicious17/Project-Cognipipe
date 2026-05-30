@@ -95,6 +95,38 @@ class TaskType(str, Enum):
     UNKNOWN = "unknown"
 
 
+def _normalize_task_type(raw: str) -> str:
+    """Map freeform Gemini task-type strings to valid TaskType values.
+
+    Gemini sometimes returns compound labels like
+    ``"time_series_regression"`` that don't match the enum.  This
+    function normalises them defensively.
+    """
+    if not isinstance(raw, str):
+        return raw
+    val = raw.strip().lower().replace("-", "_")
+
+    # Order matters: check compound labels first
+    if "time_series" in val and "regression" in val:
+        return TaskType.TIME_SERIES.value
+    if "time_series" in val:
+        return TaskType.TIME_SERIES.value
+    if "regression" in val:
+        return TaskType.REGRESSION.value
+    if "binary" in val:
+        return TaskType.BINARY_CLASSIFICATION.value
+    if "multiclass" in val or "multi_class" in val:
+        return TaskType.MULTICLASS_CLASSIFICATION.value
+    if "cluster" in val:
+        return TaskType.CLUSTERING.value
+
+    # Already a valid enum value?
+    valid = {e.value for e in TaskType}
+    if val in valid:
+        return val
+
+    return TaskType.UNKNOWN.value
+
 class CorrelationMethod(str, Enum):
     """Statistical method used to compute a correlation coefficient."""
 
@@ -501,6 +533,18 @@ class AnalystDiagnostic(BaseModel):
         description="Columns that need the most feature engineering attention.",
     )
 
+    from pydantic import model_validator
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalise_task_type(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            if "confirmed_task_type" in data:
+                data["confirmed_task_type"] = _normalize_task_type(
+                    data["confirmed_task_type"]
+                )
+        return data
+
 
 class FeatureStep(BaseModel):
     """A single feature engineering operation prescribed by Gemini."""
@@ -721,6 +765,18 @@ class MLArchitectureRecommendation(BaseModel):
         "",
         description="High-level summary of the ML architecture plan.",
     )
+
+    from pydantic import model_validator
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalise_task_type(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            if "task_type" in data:
+                data["task_type"] = _normalize_task_type(data["task_type"])
+            # Strip nulls so optional fields use defaults
+            return {k: v for k, v in data.items() if v is not None}
+        return data
 
 
 class ChainTokenUsage(BaseModel):

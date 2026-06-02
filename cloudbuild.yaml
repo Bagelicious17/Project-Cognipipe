@@ -1,0 +1,51 @@
+# ──────────────────────────────────────────────────────────────────────
+# CogniPipe — Google Cloud Build Pipeline
+# ──────────────────────────────────────────────────────────────────────
+# Trigger:  gcloud builds submit --config cloudbuild.yaml
+# Region:   asia-southeast1 (Jakarta — lowest latency for Indonesia)
+# ──────────────────────────────────────────────────────────────────────
+
+steps:
+  # Step 1 — Build the Docker image
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      - "build"
+      - "-t"
+      - "gcr.io/$PROJECT_ID/cognipipe:$COMMIT_SHA"
+      - "."
+
+  # Step 2 — Push to Container Registry
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      - "push"
+      - "gcr.io/$PROJECT_ID/cognipipe:$COMMIT_SHA"
+
+  # Step 3 — Deploy to Cloud Run
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    entrypoint: gcloud
+    args:
+      - "run"
+      - "deploy"
+      - "cognipipe"
+      - "--image"
+      - "gcr.io/$PROJECT_ID/cognipipe:$COMMIT_SHA"
+      - "--platform"
+      - "managed"
+      - "--region"
+      - "asia-southeast1"
+      - "--allow-unauthenticated"
+      - "--memory"
+      - "2Gi"
+      - "--cpu"
+      - "1"
+      - "--timeout"
+      - "300"
+      - "--set-env-vars"
+      - "GEMINI_API_KEY=$$GEMINI_API_KEY"
+      - "--max-instances"
+      - "3"
+
+images:
+  - "gcr.io/$PROJECT_ID/cognipipe:$COMMIT_SHA"
+
+timeout: "1200s"

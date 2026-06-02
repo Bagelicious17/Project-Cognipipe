@@ -38,8 +38,8 @@ logger = logging.getLogger(__name__)
 # ── Regex patterns for semantic-type heuristics ──────────────────────
 
 _ID_PAT = re.compile(r"(^id$|_id$|_key$|_index$|^index$|^key$)", re.I)
-_DT_PAT = re.compile(r"(date|time|timestamp|year|month|day_of)", re.I)
-_CYCLIC_PAT = re.compile(r"(hour|day|month|quarter|week|season)", re.I)
+_DT_PAT = re.compile(r"(date|time|timestamp|month|day_of)", re.I)
+_CYCLIC_PAT = re.compile(r"(hour|day|month|quarter|week|season|year)", re.I)
 _TARGET_PAT = re.compile(
     r"(target|label|class|outcome|churn|price|sales|revenue|survived|y_)", re.I
 )
@@ -188,11 +188,22 @@ class DataProfiler:
         """
         card_ratio = nunique / max(n_rows, 1)
 
-        # 1. Datetime check (before ID so 'signup_date' isn't caught by cardinality)
+        # 1. Datetime check — actual datetime dtype
         if pd.api.types.is_datetime64_any_dtype(series):
             return SemanticType.DATETIME
-        if _DT_PAT.search(col):
-            return SemanticType.DATETIME
+
+        # 1b. Datetime by name — ONLY for object/string columns whose
+        #     values actually parse as dates.  Never classify int/float
+        #     columns as DATETIME purely by name.
+        if _DT_PAT.search(col) and series.dtype == object:
+            try:
+                parse_rate = pd.to_datetime(
+                    series, errors="coerce"
+                ).notna().mean()
+                if parse_rate > 0.8:
+                    return SemanticType.DATETIME
+            except Exception:
+                pass
 
         # 2. ID check (name-based first, then cardinality fallback)
         if _ID_PAT.search(col):
@@ -206,18 +217,31 @@ class DataProfiler:
         if card_ratio > 0.95:
             return SemanticType.ID
 
-        # 4. Cyclical check
-        if _CYCLIC_PAT.search(col):
+        # 5. Cyclical check
+        #    Special case: integer column named 'year' with values in
+        #    a plausible calendar-year range → CYCLICAL.
+        if pd.api.types.is_integer_dtype(series) and _CYCLIC_PAT.search(col):
+            clean = series.dropna()
+            if len(clean) > 0:
+                col_lower = col.strip().lower()
+                if "year" in col_lower:
+                    if clean.min() >= 1800 and clean.max() <= 2200:
+                        return SemanticType.CYCLICAL
+                elif nunique <= 31 and clean.min() >= 0 and nunique >= 2:
+                    return SemanticType.CYCLICAL
+        if _CYCLIC_PAT.search(col) and not pd.api.types.is_integer_dtype(series):
             return SemanticType.CYCLICAL
-        if (pd.api.types.is_integer_dtype(series)
-                and nunique <= 31
-                and series.dropna().min() >= 0
-                and nunique >= 2):
-            # Could be cyclical but only if name hints at it
-            if _CYCLIC_PAT.search(col):
-                return SemanticType.CYCLICAL
 
-        # 5. Ordinal: few unique integers or object with numeric-like values
+        # 6. Continuous: float or high-cardinality int
+        #    Checked BEFORE ordinal so that float columns with special
+        #    characters in names (e.g. "cases per 100,000") are not
+        #    misclassified.
+        if pd.api.types.is_float_dtype(series):
+            return SemanticType.CONTINUOUS
+        if pd.api.types.is_integer_dtype(series) and card_ratio > 0.05:
+            return SemanticType.CONTINUOUS
+
+        # 7. Ordinal: few unique integers or object with numeric-like values
         if 2 <= nunique <= 15:
             if pd.api.types.is_integer_dtype(series):
                 return SemanticType.ORDINAL
@@ -229,17 +253,11 @@ class DataProfiler:
                     if numeric_frac > 0.8:
                         return SemanticType.ORDINAL
 
-        # 6. Nominal: object dtype catch-all
+        # 8. Nominal: object dtype catch-all
         if series.dtype == object or isinstance(series.dtype, pd.CategoricalDtype):
             return SemanticType.NOMINAL
 
-        # 7. Continuous: float or high-cardinality int
-        if pd.api.types.is_float_dtype(series):
-            return SemanticType.CONTINUOUS
-        if pd.api.types.is_integer_dtype(series) and card_ratio > 0.05:
-            return SemanticType.CONTINUOUS
-
-        # 8. Bool
+        # 9. Bool
         if pd.api.types.is_bool_dtype(series):
             return SemanticType.ORDINAL
 

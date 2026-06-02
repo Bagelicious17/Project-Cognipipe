@@ -42,7 +42,7 @@ Design decisions
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
@@ -94,6 +94,38 @@ class TaskType(str, Enum):
     CLUSTERING = "clustering"
     UNKNOWN = "unknown"
 
+
+def _normalize_task_type(raw: str) -> str:
+    """Map freeform Gemini task-type strings to valid TaskType values.
+
+    Gemini sometimes returns compound labels like
+    ``"time_series_regression"`` that don't match the enum.  This
+    function normalises them defensively.
+    """
+    if not isinstance(raw, str):
+        return raw
+    val = raw.strip().lower().replace("-", "_")
+
+    # Order matters: check compound labels first
+    if "time_series" in val and "regression" in val:
+        return TaskType.TIME_SERIES.value
+    if "time_series" in val:
+        return TaskType.TIME_SERIES.value
+    if "regression" in val:
+        return TaskType.REGRESSION.value
+    if "binary" in val:
+        return TaskType.BINARY_CLASSIFICATION.value
+    if "multiclass" in val or "multi_class" in val:
+        return TaskType.MULTICLASS_CLASSIFICATION.value
+    if "cluster" in val:
+        return TaskType.CLUSTERING.value
+
+    # Already a valid enum value?
+    valid = {e.value for e in TaskType}
+    if val in valid:
+        return val
+
+    return TaskType.UNKNOWN.value
 
 class CorrelationMethod(str, Enum):
     """Statistical method used to compute a correlation coefficient."""
@@ -501,6 +533,18 @@ class AnalystDiagnostic(BaseModel):
         description="Columns that need the most feature engineering attention.",
     )
 
+    from pydantic import model_validator
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalise_task_type(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            if "confirmed_task_type" in data:
+                data["confirmed_task_type"] = _normalize_task_type(
+                    data["confirmed_task_type"]
+                )
+        return data
+
 
 class FeatureStep(BaseModel):
     """A single feature engineering operation prescribed by Gemini."""
@@ -511,20 +555,38 @@ class FeatureStep(BaseModel):
         description="Execution order (1 = first).",
     )
     operation: str = Field(
-        ...,
+        "",
         description=(
             "Short operation label, e.g. 'log_transform', "
             "'one_hot_encode', 'create_interaction'."
         ),
     )
     target_columns: list[str] = Field(
-        ...,
+        default_factory=list,
         description="Column(s) this operation applies to.",
     )
-    new_column_name: str | None = Field(
+    new_column_name: str | list[str] | None = Field(
         None,
-        description="Name of the newly created feature, if applicable.",
+        description="Name of the newly created feature(s), if applicable.",
     )
+
+    @classmethod
+    def _coerce_new_column_name(cls, v: Any) -> str | None:
+        if isinstance(v, list):
+            return ", ".join(str(x) for x in v) if v else None
+        return v
+
+    from pydantic import model_validator
+
+    @model_validator(mode="before")
+    @classmethod
+    def _fix_nulls_and_lists(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            if isinstance(data.get("new_column_name"), list):
+                names = data["new_column_name"]
+                data["new_column_name"] = ", ".join(str(x) for x in names) if names else None
+            return {k: v for k, v in data.items() if v is not None}
+        return data
     parameters: dict[str, Any] = Field(
         default_factory=dict,
         description=(
@@ -533,20 +595,20 @@ class FeatureStep(BaseModel):
             "{'n_bins': 10} for binning."
         ),
     )
-    sklearn_equivalent: str | None = Field(
-        None,
+    sklearn_equivalent: str = Field(
+        "",
         description=(
             "Fully qualified sklearn (or compatible) class, e.g. "
-            "'sklearn.preprocessing.StandardScaler'. None if the "
+            "'sklearn.preprocessing.StandardScaler'. Empty string if the "
             "operation has no direct sklearn equivalent."
         ),
     )
     rationale: str = Field(
-        ...,
+        "",
         description="Why this step is recommended (one sentence).",
     )
     code_snippet: str = Field(
-        ...,
+        "",
         description="Python code snippet implementing this step.",
     )
     priority: str = Field(
@@ -576,11 +638,11 @@ class ModelCandidate(BaseModel):
     """A single ML model recommended by Gemini."""
 
     model_name: str = Field(
-        ...,
+        "",
         description="Human-readable model name, e.g. 'XGBoost Classifier'.",
     )
     sklearn_class: str = Field(
-        ...,
+        "",
         description=(
             "Fully qualified scikit-learn (or compatible) class path, "
             "e.g. 'xgboost.XGBClassifier'."
@@ -591,7 +653,7 @@ class ModelCandidate(BaseModel):
         description="Recommended starting hyperparameters.",
     )
     rationale: str = Field(
-        ...,
+        "",
         description="Why this model is suitable for the dataset.",
     )
     rank: int = Field(
@@ -600,34 +662,50 @@ class ModelCandidate(BaseModel):
         description="Rank among candidates (1 = best).",
     )
 
+    from pydantic import model_validator
+    @model_validator(mode="before")
+    @classmethod
+    def _strip_nulls(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            return {k: v for k, v in data.items() if v is not None}
+        return data
+
 
 class PreprocessingStep(BaseModel):
     """A preprocessing operation recommended before model training."""
 
     step_order: int = Field(..., ge=1, description="Execution order.")
     operation: str = Field(
-        ...,
+        "",
         description="Operation label, e.g. 'impute_median', 'standard_scale'.",
     )
     target_columns: list[str] = Field(
-        ...,
+        default_factory=list,
         description="Columns to apply this operation to.",
     )
     code_snippet: str = Field(
-        ...,
+        "",
         description="Python code implementing the step.",
     )
     rationale: str = Field(
-        ...,
+        "",
         description="Why this preprocessing step is needed.",
     )
+
+    from pydantic import model_validator
+    @model_validator(mode="before")
+    @classmethod
+    def _strip_nulls(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            return {k: v for k, v in data.items() if v is not None}
+        return data
 
 
 class EvaluationStrategy(BaseModel):
     """Model evaluation plan recommended by Gemini."""
 
     validation_method: str = Field(
-        ...,
+        "",
         description=(
             "Validation strategy, e.g. 'stratified_kfold', "
             "'time_series_split', 'holdout'."
@@ -639,7 +717,7 @@ class EvaluationStrategy(BaseModel):
         description="Number of cross-validation folds, if applicable.",
     )
     primary_metric: str = Field(
-        ...,
+        "",
         description="Primary evaluation metric, e.g. 'f1_weighted', 'rmse'.",
     )
     secondary_metrics: list[str] = Field(
@@ -650,6 +728,14 @@ class EvaluationStrategy(BaseModel):
         "",
         description="Why this evaluation strategy was chosen.",
     )
+
+    from pydantic import model_validator
+    @model_validator(mode="before")
+    @classmethod
+    def _strip_nulls(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            return {k: v for k, v in data.items() if v is not None}
+        return data
 
 
 class MLArchitectureRecommendation(BaseModel):
@@ -679,6 +765,18 @@ class MLArchitectureRecommendation(BaseModel):
         "",
         description="High-level summary of the ML architecture plan.",
     )
+
+    from pydantic import model_validator
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalise_task_type(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            if "task_type" in data:
+                data["task_type"] = _normalize_task_type(data["task_type"])
+            # Strip nulls so optional fields use defaults
+            return {k: v for k, v in data.items() if v is not None}
+        return data
 
 
 class ChainTokenUsage(BaseModel):
@@ -759,7 +857,7 @@ class GeneratedPipeline(BaseModel):
         description="Human-readable summary of what the pipeline does.",
     )
     generated_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(timezone.utc),
         description="UTC timestamp of code generation.",
     )
     source_profile_version: str = Field(

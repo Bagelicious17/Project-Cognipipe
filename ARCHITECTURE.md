@@ -30,7 +30,7 @@ This layer performs deterministic statistical analysis and heuristic inference.
 **Output:** `GeminiResult` (JSON)
 **Rules:** ONLY Gemini API. No pandas.
 
-This layer acts as the AI reasoning engine. It takes the JSON metadata from Layer 1 and prompts Gemini 1.5 Pro to generate:
+This layer acts as the AI reasoning engine. It takes the JSON metadata from Layer 1 and prompts Gemini to generate:
 - **Feature Engineering Prescriptions**: A sequence of transformations (e.g., log transforms, interactions).
 - **ML Architecture Recommendations**: Candidate models, preprocessing steps, and evaluation strategies tailored to the dataset.
 The output is strictly enforced as structured JSON.

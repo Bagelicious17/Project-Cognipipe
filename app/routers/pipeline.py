@@ -17,17 +17,21 @@ from __future__ import annotations
 
 import asyncio
 import io
+import json
 import logging
 from functools import partial
 
 import pandas as pd
 from fastapi import APIRouter, HTTPException, UploadFile
-from fastapi.responses import Response
+from fastapi.responses import Response, StreamingResponse
 
 from app.routers.schemas import (
     DownloadRequest,
     ErrorResponse,
     PipelineResponse,
+    StreamDoneEvent,
+    StreamErrorEvent,
+    StreamProgressEvent,
 )
 from config import settings
 from models.schemas import ProfileResult
@@ -245,132 +249,140 @@ async def profile_only(file: UploadFile):
 
 
 # ──────────────────────────────────────────────────────────────────────
-# POST /generate
+# POST /generate  (NDJSON streaming)
+# ──────────────────────────────────────────────────────────────────────
+#
+# NOTE: This endpoint returns an NDJSON stream (application/x-ndjson),
+# not a single JSON object.  FastAPI's Swagger UI (/docs) cannot render
+# streaming responses, so manual testing should use the React frontend
+# or curl.  The /docs route is intentionally kept for other endpoints.
 # ──────────────────────────────────────────────────────────────────────
 
 @router.post(
     "/generate",
-    response_model=PipelineResponse,
+    response_class=StreamingResponse,
     responses={
         400: {"model": ErrorResponse, "description": "Invalid file"},
         413: {"model": ErrorResponse, "description": "File too large"},
-        504: {"model": ErrorResponse, "description": "Timeout"},
     },
-    summary="Generate a full ML pipeline",
+    summary="Generate a full ML pipeline (streaming)",
     description=(
-        "Upload a CSV or XLSX file and receive a complete, runnable "
-        "ML pipeline: Python script, Jupyter notebook, and "
-        "requirements.txt. Runs all 3 engine layers."
+        "Upload a CSV or XLSX file and receive a streaming NDJSON response "
+        "with real-time progress events followed by the complete pipeline. "
+        "Events: {type:'progress'}, {type:'done'}, {type:'error'}."
     ),
 )
 async def generate_pipeline(file: UploadFile):
-    """Run the full 3-layer pipeline: Profile → Gemini → Assemble."""
+    """Run the full 3-layer pipeline with streaming progress.
+
+    Returns an NDJSON stream of events:
+    - ``progress``: intermediate progress updates (0–100%)
+    - ``done``: final event with the complete PipelineResponse
+    - ``error``: sent if any stage fails; stream ends after this
+    """
+    # Validate and parse the uploaded file *before* entering the stream.
+    # This allows validation errors to be raised as normal HTTPExceptions.
     df = await _validate_and_read_csv(file)
+
+    queue: asyncio.Queue = asyncio.Queue()
     loop = asyncio.get_event_loop()
 
-    # Layer 1 — Profiling
-    try:
-        profiler = DataProfiler()
-        profile = await asyncio.wait_for(
-            loop.run_in_executor(None, partial(profiler.profile, df)),
-            timeout=settings.gemini_timeout_seconds,
-        )
-    except asyncio.TimeoutError:
-        raise HTTPException(
-            status_code=504,
-            detail={
-                "error": "timeout",
-                "detail": (
-                    f"Profiling timed out after {settings.gemini_timeout_seconds}s. "
-                    "Try uploading a smaller dataset."
-                ),
-                "stage": "profiling",
-            },
-        )
-    except Exception as e:
-        logger.exception("Profiling failed")
-        raise HTTPException(
-            status_code=500,
-            detail={
-                "error": "profiling_error",
-                "detail": (
-                    "Data profiling failed unexpectedly. "
-                    "Please try uploading a different dataset."
-                ),
-                "stage": "profiling",
-            },
-        )
+    def _emit(event: dict) -> None:
+        """Thread-safe: push an event dict onto the async queue."""
+        loop.call_soon_threadsafe(queue.put_nowait, event)
 
-    # Layer 2 — Gemini orchestration
-    try:
-        orchestrator = GeminiOrchestrator(
-            api_key=settings.gemini_api_key,
-            model=settings.gemini_model_name,
-        )
-        gemini_result = await asyncio.wait_for(
-            loop.run_in_executor(None, partial(orchestrator.run, profile)),
-            timeout=settings.gemini_timeout_seconds,
-        )
-    except asyncio.TimeoutError:
-        raise HTTPException(
-            status_code=504,
-            detail={
-                "error": "timeout",
-                "detail": (
-                    f"Gemini orchestration timed out after "
-                    f"{settings.gemini_timeout_seconds}s. "
-                    "The AI analysis is taking too long. "
-                    "Try a smaller dataset or increase GEMINI_TIMEOUT_SECONDS."
-                ),
-                "stage": "orchestration",
-            },
-        )
-    except ValueError as e:
-        raise HTTPException(
-            status_code=500,
-            detail={
-                "error": "configuration_error",
-                "detail": str(e),
-                "stage": "orchestration",
-            },
-        )
-    except Exception as e:
-        logger.exception("Gemini orchestration failed")
-        raise HTTPException(
-            status_code=500,
-            detail={
-                "error": "orchestration_error",
-                "detail": _sanitize_error(e),
-                "stage": "orchestration",
-            },
-        )
+    def _worker() -> None:
+        """Synchronous worker that runs all 3 layers in a thread."""
+        try:
+            # ── Layer 1 — Profiling ─────────────────────────────────
+            _emit(StreamProgressEvent(
+                progress=5, message="Validating and parsing dataset…"
+            ).model_dump())
 
-    # Layer 3 — Code assembly
-    try:
-        assembler = CodeAssembler()
-        pipeline = assembler.build(profile, gemini_result)
-    except Exception as e:
-        logger.exception("Code assembly failed")
-        raise HTTPException(
-            status_code=500,
-            detail={
-                "error": "assembly_error",
-                "detail": (
-                    "Failed to assemble the pipeline code. "
-                    "Please try again with a different dataset."
-                ),
-                "stage": "assembly",
-            },
-        )
+            profiler = DataProfiler()
+            profile = profiler.profile(df)
 
-    return PipelineResponse(
-        python_script=pipeline.python_script,
-        notebook_json=pipeline.notebook_json,
-        requirements_txt=pipeline.requirements_txt,
-        pipeline_summary=pipeline.pipeline_summary,
-        generated_at=pipeline.generated_at,
-        profiling_duration_seconds=profile.profiling_duration_seconds,
-        orchestration_duration_seconds=gemini_result.orchestration_duration_seconds,
+            _emit(StreamProgressEvent(
+                progress=10, message="Data profiled — starting AI analysis…"
+            ).model_dump())
+
+            # ── Layer 2 — Gemini orchestration ──────────────────────
+            def progress_cb(pct: int, msg: str) -> None:
+                _emit(StreamProgressEvent(
+                    progress=pct, message=msg
+                ).model_dump())
+
+            orchestrator = GeminiOrchestrator(
+                api_key=settings.gemini_api_key,
+                model=settings.gemini_model_name,
+            )
+            gemini_result = orchestrator.run(
+                profile, progress_callback=progress_cb
+            )
+
+            # ── Layer 3 — Code assembly ─────────────────────────────
+            _emit(StreamProgressEvent(
+                progress=90, message="Assembling pipeline code and notebook…"
+            ).model_dump())
+
+            assembler = CodeAssembler()
+            pipeline = assembler.build(profile, gemini_result)
+
+            response = PipelineResponse(
+                python_script=pipeline.python_script,
+                notebook_json=pipeline.notebook_json,
+                requirements_txt=pipeline.requirements_txt,
+                pipeline_summary=pipeline.pipeline_summary,
+                generated_at=pipeline.generated_at,
+                profiling_duration_seconds=profile.profiling_duration_seconds,
+                orchestration_duration_seconds=(
+                    gemini_result.orchestration_duration_seconds
+                ),
+            )
+
+            # Explicit 100% before done
+            _emit(StreamProgressEvent(
+                progress=100, message="Pipeline ready!"
+            ).model_dump())
+
+            _emit(StreamDoneEvent(data=response).model_dump())
+
+        except Exception as exc:
+            logger.exception("Pipeline generation failed in worker")
+
+            # Determine stage from exception context
+            stage = "orchestration"
+            if "profil" in type(exc).__name__.lower():
+                stage = "profiling"
+
+            _emit(StreamErrorEvent(
+                error="generation_error",
+                detail=_sanitize_error(exc),
+                stage=stage,
+            ).model_dump())
+
+    # Launch the worker in a background thread
+    loop.run_in_executor(None, _worker)
+
+    async def _event_generator():
+        """Async generator yielding NDJSON lines from the queue."""
+        try:
+            while True:
+                event = await queue.get()
+                yield json.dumps(event, default=str) + "\n"
+                if event.get("type") in ("done", "error"):
+                    # 0.5s delay after 100% so the UI can show it
+                    if event.get("type") == "done":
+                        await asyncio.sleep(0.5)
+                    break
+        except asyncio.CancelledError:
+            # Client disconnected — clean up gracefully
+            logger.info("Client disconnected during streaming")
+            return
+
+    return StreamingResponse(
+        _event_generator(),
+        media_type="application/x-ndjson",
     )
 
 

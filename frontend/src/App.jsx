@@ -30,6 +30,10 @@ export default function App() {
   const [profile, setProfile] = useState(null);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
+  const [generatingStatus, setGeneratingStatus] = useState({
+    progress: 0,
+    message: "",
+  });
 
   const [isDark, setIsDark] = useState(false);
 
@@ -55,6 +59,7 @@ export default function App() {
     setProfile(null);
     setResult(null);
     setError(null);
+    setGeneratingStatus({ progress: 0, message: "" });
   }, []);
 
   // Stage 1 → 2: Upload → Profiling
@@ -71,11 +76,14 @@ export default function App() {
     }
   }, []);
 
-  // Stage 2 → 3: Profiled → Generating
+  // Stage 2 → 3: Profiled → Generating (streaming)
   const handleGenerate = useCallback(async () => {
     setStage(STAGES.GENERATING);
+    setGeneratingStatus({ progress: 0, message: "Starting pipeline generation…" });
     try {
-      const res = await generatePipeline(file);
+      const res = await generatePipeline(file, ({ progress, message }) => {
+        setGeneratingStatus({ progress, message });
+      });
       setResult(res);
       setStage(STAGES.RESULTS);
     } catch (err) {
@@ -134,7 +142,12 @@ export default function App() {
           <ProfilingStage profile={profile} onGenerate={handleGenerate} />
         )}
 
-        {stage === STAGES.GENERATING && <GeneratingStage />}
+        {stage === STAGES.GENERATING && (
+          <GeneratingStage
+            progress={generatingStatus.progress}
+            message={generatingStatus.message}
+          />
+        )}
 
         {stage === STAGES.RESULTS && result && (
           <ResultsStage result={result} onReset={reset} />

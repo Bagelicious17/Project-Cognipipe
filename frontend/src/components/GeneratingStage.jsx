@@ -1,37 +1,14 @@
 import { useEffect, useState, useRef } from "react";
 
-const MESSAGES = [
-  "Analyzing feature distributions...",
-  "Engineering optimal transformations...",
-  "Selecting model architectures...",
-  "Tuning hyperparameter recommendations...",
-  "Evaluating cross-validation strategies...",
-  "Assembling your pipeline...",
-];
-
-export default function GeneratingStage() {
-  const [progress, setProgress] = useState(0);
-  const [msgIndex, setMsgIndex] = useState(0);
+/**
+ * GeneratingStage — Displays real-time streaming progress
+ *
+ * Props:
+ *   progress (number 0–100): Current pipeline completion percentage
+ *   message  (string):       Current status message from the backend
+ */
+export default function GeneratingStage({ progress = 0, message = "" }) {
   const startRef = useRef(Date.now());
-
-  // Fake progress: ramps quickly to ~85%, then crawls
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const elapsed = (Date.now() - startRef.current) / 1000;
-      // Fast initial ramp, then asymptotic approach to 92%
-      const p = Math.min(92, 15 * Math.sqrt(elapsed));
-      setProgress(p);
-    }, 200);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Rotate messages every 5 seconds
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setMsgIndex((i) => (i + 1) % MESSAGES.length);
-    }, 5000);
-    return () => clearInterval(interval);
-  }, []);
 
   return (
     <div className="stage-enter flex flex-col items-center gap-8 w-full max-w-xl mx-auto relative z-10">
@@ -64,13 +41,15 @@ export default function GeneratingStage() {
         </p>
       </div>
 
-      {/* Rotating Message */}
-      <p
-        key={msgIndex}
-        className="text-[#292524] dark:text-[#F3F2ED] text-base font-medium animate-fade-in"
-      >
-        {MESSAGES[msgIndex]}
-      </p>
+      {/* Real-time status message from backend */}
+      {message && (
+        <p
+          key={message}
+          className="text-[#292524] dark:text-[#F3F2ED] text-base font-medium animate-fade-in text-center"
+        >
+          {message}
+        </p>
+      )}
 
       {/* Elapsed Timer */}
       <ElapsedTimer startRef={startRef} />

@@ -138,3 +138,69 @@ class ErrorResponse(BaseModel):
         ),
         examples=["upload"],
     )
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Streaming events (NDJSON)
+# ──────────────────────────────────────────────────────────────────────
+
+class StreamProgressEvent(BaseModel):
+    """Intermediate progress update streamed during pipeline generation.
+
+    Sent as one JSON line in the NDJSON response from ``/generate``.
+    """
+
+    type: str = Field(
+        "progress",
+        description="Event discriminator, always 'progress'.",
+    )
+    progress: int = Field(
+        ...,
+        ge=0,
+        le=100,
+        description="Completion percentage (0–100).",
+    )
+    message: str = Field(
+        ...,
+        description="Human-readable status message for UI display.",
+    )
+
+
+class StreamDoneEvent(BaseModel):
+    """Final event containing the complete pipeline output.
+
+    Sent as one JSON line after 100% progress.
+    """
+
+    type: str = Field(
+        "done",
+        description="Event discriminator, always 'done'.",
+    )
+    data: PipelineResponse = Field(
+        ...,
+        description="The complete pipeline generation result.",
+    )
+
+
+class StreamErrorEvent(BaseModel):
+    """Error event sent when any pipeline stage fails.
+
+    Sent as one JSON line; the stream ends after this event.
+    """
+
+    type: str = Field(
+        "error",
+        description="Event discriminator, always 'error'.",
+    )
+    error: str = Field(
+        ...,
+        description="Short error category.",
+    )
+    detail: str = Field(
+        ...,
+        description="Human-readable error message.",
+    )
+    stage: str = Field(
+        ...,
+        description="Which pipeline stage failed.",
+    )

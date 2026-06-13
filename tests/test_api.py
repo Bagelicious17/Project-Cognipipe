@@ -113,13 +113,43 @@ def test_profile_only_endpoint(mock_profile):
 
 @pytest.mark.slow
 def test_generate_pipeline_with_csv():
-    """Full end-to-end with a tiny CSV fixture. Makes real Gemini calls."""
-    response = client.post(
+    """Full end-to-end with a tiny CSV fixture. Makes real Gemini calls.
+
+    The /generate endpoint now returns NDJSON streaming, so we read
+    the response as lines, parse each JSON event, and verify:
+    - At least one 'progress' event was received
+    - Progress percentages are non-decreasing
+    - The final 'done' event contains the pipeline payload
+    """
+    import json
+
+    with client.stream(
+        "POST",
         "/api/v1/pipeline/generate",
         files={"file": ("data.csv", TINY_CSV, "text/csv")},
-    )
-    assert response.status_code == 200
-    data = response.json()
+    ) as response:
+        assert response.status_code == 200
+
+        events = []
+        for line in response.iter_lines():
+            line = line.strip()
+            if not line:
+                continue
+            events.append(json.loads(line))
+
+    # Must have at least 1 progress + 1 done
+    progress_events = [e for e in events if e["type"] == "progress"]
+    done_events = [e for e in events if e["type"] == "done"]
+
+    assert len(progress_events) >= 1, "Expected at least one progress event"
+    assert len(done_events) == 1, "Expected exactly one done event"
+
+    # Progress percentages should be non-decreasing
+    pcts = [e["progress"] for e in progress_events]
+    assert pcts == sorted(pcts), f"Progress not monotonic: {pcts}"
+
+    # Done event contains the pipeline
+    data = done_events[0]["data"]
     assert "python_script" in data
     assert "requirements_txt" in data
     assert "pipeline_summary" in data

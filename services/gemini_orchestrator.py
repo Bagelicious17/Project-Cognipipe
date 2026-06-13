@@ -20,7 +20,7 @@ from __future__ import annotations
 import json
 import logging
 import time
-from typing import Any
+from typing import Any, Callable
 
 from google import genai
 from google.genai import types
@@ -93,11 +93,17 @@ class GeminiOrchestrator:
 
     # ── public entry point ────────────────────────────────────────
 
-    def run(self, profile: ProfileResult) -> GeminiResult:
+    def run(
+        self,
+        profile: ProfileResult,
+        progress_callback: Callable[[int, str], None] | None = None,
+    ) -> GeminiResult:
         """Execute all three chains sequentially and return a ``GeminiResult``.
 
         Args:
             profile: The ``ProfileResult`` from Layer 1.
+            progress_callback: Optional callable ``(percent, message)``
+                invoked at key milestones so callers can stream progress.
 
         Returns:
             Fully populated ``GeminiResult``.
@@ -105,24 +111,32 @@ class GeminiOrchestrator:
         Raises:
             GeminiOrchestrationError: If any chain fails after retries.
         """
+        def _notify(pct: int, msg: str) -> None:
+            if progress_callback is not None:
+                progress_callback(pct, msg)
+
         t0 = time.perf_counter()
         self._token_usage = []
         raw_responses: dict[str, Any] = {}
 
         # Chain 1 — Analyst
+        _notify(20, "Running AI Analyst (Chain 1 of 3)…")
         chain1_dict = self._run_chain_1(profile)
         raw_responses["chain_1_analyst"] = chain1_dict
         analyst = AnalystDiagnostic.model_validate(chain1_dict)
+        _notify(40, "Analyst complete — engineering features (Chain 2 of 3)…")
 
         # Chain 2 — Feature Engineer
         chain2_prescription = self._run_chain_2(profile, chain1_dict)
         raw_responses["chain_2_feature_engineer"] = chain2_prescription.model_dump()
+        _notify(65, "Features engineered — designing ML architecture (Chain 3 of 3)…")
 
         # Chain 3 — ML Architect
         chain3_architecture = self._run_chain_3(
             profile, chain1_dict, chain2_prescription
         )
         raw_responses["chain_3_ml_architect"] = chain3_architecture.model_dump()
+        _notify(85, "Architecture complete — assembling pipeline code…")
 
         duration = round(time.perf_counter() - t0, 4)
 
